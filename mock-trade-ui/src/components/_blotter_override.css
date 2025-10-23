@@ -1,0 +1,15 @@
+/* Blotter dark override: force dark background and light text */
+.orders-table.blotter,
+.orders-table.blotter thead th,
+.orders-table.blotter tbody td {
+  background: #181818 !important;
+  color: #E0E0E0 !important;
+}
+.orders-table.blotter thead th {
+  background: #232323 !important;
+  color: #FF9900 !important;
+  border-bottom: 2px solid #333 !important;
+}
+.orders-table.blotter tbody td {
+  border-bottom: 1px solid #222 !important;
+}
