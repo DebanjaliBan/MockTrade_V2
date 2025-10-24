@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routes import order
+from app.routes import order,trade
 
 app = FastAPI()
 
@@ -15,6 +15,7 @@ app.add_middleware(
 
 # Include routes
 app.include_router(order.router)
+app.include_router(trade.router)
 
 @app.get("/")
 def root():

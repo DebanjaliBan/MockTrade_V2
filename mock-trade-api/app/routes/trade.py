@@ -1,17 +1,21 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from app.database import SessionLocal
-from app.crud import get_trades
+from app import crud, database
 
-router = APIRouter()
+router = APIRouter(prefix="/trade", tags=["Trade"])
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+@router.post("/")
+def create_trade(trade: dict, db: Session = Depends(database.get_db)):
+    return crud.create_trade(db=db, trade=trade)
 
-@router.get("/api/trades")
-def read_trades(db: Session = Depends(get_db)):
-    return get_trades(db)
+@router.get("/")
+def get_trades(db: Session = Depends(database.get_db)):
+    return crud.get_trades(db)
+
+@router.post("/{trade_id}/amend")
+def amend_trade(trade_id: str, trade: dict, db: Session = Depends(database.get_db)):
+    return crud.amend_trade(db, trade_id, trade)
+
+@router.post("/{trade_id}/cancel")
+def cancel_trade(trade_id: str, db: Session = Depends(database.get_db)):
+    return crud.update_trade_status(db, trade_id, "CANCELLED")
