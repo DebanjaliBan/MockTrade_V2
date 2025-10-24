@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import "./BloombergTheme.css";
 
 function OrderEntry() {
-  const [instrument, setInstrument] = useState("GOVT10Y FUT SEP25");
+  const [instrument, setInstrument] = useState("INS-GOV5Y-SEP25");
   const [side, setSide] = useState("BUY");
   const [qty, setQty] = useState("10");
   const [price, setPrice] = useState("101.55");
@@ -43,7 +43,6 @@ function OrderEntry() {
       setMessage("Instrument, Qty, and Trader are required.");
       return;
     }
-
     const orderData = {
       instrument,
       side,
@@ -54,7 +53,6 @@ function OrderEntry() {
       trader,
       account,
     };
-
     try {
       const response = await fetch("http://localhost:8000/order/", {
         method: "POST",
@@ -101,6 +99,39 @@ function OrderEntry() {
     }
   };
 
+  // ✅ Export function inside component
+  const handleExportVisibleRows = () => {
+    if (filteredOrders.length === 0) {
+      setMessage("No rows to export.");
+      return;
+    }
+
+    const headers = ["ID", "Instrument", "Side", "Qty", "Price", "Trader", "Status", "Created"];
+    const rows = filteredOrders.map(o => [
+      o.id,
+      o.instrument,
+      o.side,
+      o.qty,
+      o.price,
+      o.trader,
+      o.status,
+      o.created_at ? new Date(o.created_at).toLocaleString() : ""
+    ]);
+
+    const csvContent = [headers, ...rows]
+      .map(e => e.map(v => `"${v}"`).join(","))
+      .join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", "visible_orders.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const filteredOrders = orders.filter((o) => {
     if (filterInstrument && !o.instrument?.toLowerCase().includes(filterInstrument.toLowerCase())) return false;
     if (filterTrader && !o.trader?.toLowerCase().includes(filterTrader.toLowerCase())) return false;
@@ -116,58 +147,61 @@ function OrderEntry() {
     <div className="order-entry-container">
       <h3>Order Entry</h3>
       <form onSubmit={handleSubmit} className="order-form">
-        {/* Row 1 */}
+        {/* Form rows */}
         <div className="form-row-inline">
           <label>Instrument:</label>
           <input value={instrument} onChange={(e) => setInstrument(e.target.value)} />
-
           <label style={{ marginLeft: "20px" }}>Side:</label>
           <label><input type="radio" value="BUY" checked={side === "BUY"} onChange={() => setSide("BUY")} />Buy</label>
           <label><input type="radio" value="SELL" checked={side === "SELL"} onChange={() => setSide("SELL")} />Sell</label>
         </div>
-
-        {/* Row 2 */}
         <div className="form-row-inline">
           <label>Qty:</label>
           <input value={qty} onChange={(e) => setQty(e.target.value)} type="number" />
-
           <label style={{ marginLeft: "20px" }}>Price (Limit):</label>
           <input value={price} onChange={(e) => setPrice(e.target.value)} type="number" step="0.01" />
-
           <label style={{ marginLeft: "20px" }}>Type:</label>
           <label><input type="radio" value="LIMIT" checked={type === "LIMIT"} onChange={() => setType("LIMIT")} />Limit</label>
           <label><input type="radio" value="MARKET" checked={type === "MARKET"} onChange={() => setType("MARKET")} />Market</label>
         </div>
-
-        {/* Row 3 */}
         <div className="form-row-inline">
           <label>TIF:</label>
           <label><input type="radio" value="DAY" checked={tif === "DAY"} onChange={() => setTif("DAY")} />Day</label>
           <label><input type="radio" value="IOC" checked={tif === "IOC"} onChange={() => setTif("IOC")} />IOC</label>
-
           <label style={{ marginLeft: "20px" }}>Trader:</label>
           <input value={trader} onChange={(e) => setTrader(e.target.value)} />
-
           <label style={{ marginLeft: "20px" }}>Account:</label>
           <input value={account} onChange={(e) => setAccount(e.target.value)} />
         </div>
-
-        {/* Buttons */}
         <div className="button-row">
           <button type="submit">Submit</button>
-          <button type="button" disabled={!selectedOrderId} onClick={handleSimulateFill}>
-            Simulate Fill
-          </button>
-          <button type="button" disabled={!selectedOrderId} onClick={handleCancelOrder}>
-            Cancel Order
-          </button>
+          <button type="button" disabled={!selectedOrderId} onClick={handleSimulateFill}>Simulate Fill</button>
+          <button type="button" disabled={!selectedOrderId} onClick={handleCancelOrder}>Cancel Order</button>
         </div>
-
         {message && <div className="message">{message}</div>}
       </form>
-
       <hr />
       <h4>Orders</h4>
+
+      {/* ✅ Export button above table */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
+        <button
+          type="button"
+          onClick={handleExportVisibleRows}
+          style={{
+            backgroundColor: '#007BFF',
+            color: 'white',
+            fontWeight: 'bold',
+            padding: '6px 12px',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer'
+          }}
+        >
+          Export
+        </button>
+      </div>
+
       <table className="orders-table blotter">
         <thead>
           <tr>
