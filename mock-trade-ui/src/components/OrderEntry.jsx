@@ -20,6 +20,10 @@ function OrderEntry() {
   const [filterStatus, setFilterStatus] = useState("");
   const [filterDate, setFilterDate] = useState("");
 
+  // Modal state
+  const [showFixModal, setShowFixModal] = useState(false);
+  const [fixMessage, setFixMessage] = useState("");
+
   const fetchOrders = async () => {
     try {
       const response = await fetch("http://localhost:8000/order/");
@@ -99,13 +103,12 @@ function OrderEntry() {
     }
   };
 
-  // ✅ Export function inside component
+  // ✅ Export function
   const handleExportVisibleRows = () => {
     if (filteredOrders.length === 0) {
       setMessage("No rows to export.");
       return;
     }
-
     const headers = ["ID", "Instrument", "Side", "Qty", "Price", "Trader", "Status", "Created"];
     const rows = filteredOrders.map(o => [
       o.id,
@@ -117,16 +120,64 @@ function OrderEntry() {
       o.status,
       o.created_at ? new Date(o.created_at).toLocaleString() : ""
     ]);
-
     const csvContent = [headers, ...rows]
       .map(e => e.map(v => `"${v}"`).join(","))
       .join("\n");
-
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
     link.setAttribute("download", "visible_orders.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // ✅ Generate FIX message
+  const generateFixMessage = (order) => {
+    const fixParts = [
+      "8=FIX.4.4",
+      "9=0000",
+      "35=D",
+      `49=${order.trader}`,
+      `56=${order.account}`,
+      "34=2",
+      `52=${new Date(order.created_at).toISOString().replace(/[-:]/g, "").split(".")[0]}`,
+      `11=${order.id}`,
+      `55=${order.instrument}`,
+      `54=${order.side === "BUY" ? 1 : 2}`,
+      `38=${order.qty}`,
+      `40=${order.type === "LIMIT" ? 2 : 1}`,
+      order.price ? `44=${order.price}` : "",
+      `59=${order.tif === "IOC" ? 3 : 0}`,
+      "21=1",
+      `60=${new Date(order.created_at).toISOString().replace(/[-:]/g, "").split(".")[0]}`,
+      `150=${order.status === "NEW" ? 0 : order.status === "FILLED" ? 2 : 4}`,
+      `39=${order.status === "NEW" ? 0 : order.status === "FILLED" ? 2 : 4}`,
+      "10=000"
+    ].filter(Boolean);
+    return fixParts.join("|");
+  };
+
+  const handleDropcopy = () => {
+    const order = orders.find(o => o.id === selectedOrderId);
+    if (!order) return;
+    const fix = generateFixMessage(order);
+    setFixMessage(fix);
+    setShowFixModal(true);
+  };
+
+  const handleCopyFix = () => {
+    navigator.clipboard.writeText(fixMessage);
+    alert("FIX message copied to clipboard!");
+  };
+
+  const handleDownloadFix = () => {
+    const blob = new Blob([fixMessage], { type: "text/plain;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `fix_message_${selectedOrderId}.txt`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -182,9 +233,8 @@ function OrderEntry() {
       </form>
       <hr />
       <h4>Orders</h4>
-
-      {/* ✅ Export button above table */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
+      {/* ✅ Export + Dropcopy buttons */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginBottom: '8px' }}>
         <button
           type="button"
           onClick={handleExportVisibleRows}
@@ -200,8 +250,24 @@ function OrderEntry() {
         >
           Export
         </button>
+        <button
+          type="button"
+          disabled={!selectedOrderId}
+          onClick={handleDropcopy}
+          style={{
+            backgroundColor: '#FF9900',
+            color: '#000',
+            fontWeight: 'bold',
+            padding: '6px 12px',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            opacity: !selectedOrderId ? 0.5 : 1
+          }}
+        >
+          Dropcopy
+        </button>
       </div>
-
       <table className="orders-table blotter">
         <thead>
           <tr>
@@ -262,6 +328,31 @@ function OrderEntry() {
           ))}
         </tbody>
       </table>
+
+      {/* ✅ Modal for FIX message */}
+      {showFixModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+          backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center'
+        }}>
+          <div style={{
+            backgroundColor: '#1C1C1C', padding: '20px', borderRadius: '8px', width: '500px',
+            border: '1px solid #FF9900', color: '#E0E0E0', fontFamily: 'Courier New, monospace'
+          }}>
+            <h4 style={{ color: '#FF9900', marginBottom: '10px' }}>FIX Message</h4>
+            <textarea
+              readOnly
+              value={fixMessage}
+              style={{ width: '100%', height: '150px', backgroundColor: '#000', color: '#00FF00', fontSize: '12px' }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '10px' }}>
+              <button onClick={handleCopyFix}>Copy</button>
+              <button onClick={handleDownloadFix}>Download</button>
+              <button onClick={() => setShowFixModal(false)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
